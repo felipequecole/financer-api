@@ -1,11 +1,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from src.settings.settings import app_settings
 
 Base = declarative_base()
-DATABASE_URL = "postgresql://root:passwd@localhost:5432/financer"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(app_settings.pg_connect_string)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -16,3 +16,7 @@ async def get_db():
         yield db
     finally:
         db.close()
+
+
+def fetch_connection():
+    return SessionLocal()

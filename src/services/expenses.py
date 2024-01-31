@@ -11,7 +11,7 @@ def get_all_expenses(db: Session) -> List[ExpenseVo]:
 
 
 def get_expense_by_id(db: Session, expense_id: int) -> ExpenseVo | None:
-    expense = db.query(ExpenseRequestVo).filter(Expense.id == expense_id).first()
+    expense = db.query(Expense).filter(Expense.id == expense_id).first()
     return ExpenseVo.model_validate(expense)
 
 

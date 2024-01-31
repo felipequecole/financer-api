@@ -22,7 +22,9 @@ class ExpenseRequestVo(BaseModel):
     @field_validator("amount", mode="after")
     @classmethod
     def two_decimal_places(cls, v: Decimal) -> Decimal:
-        return Decimal(v).quantize(Decimal("0.01"))
+        if (v):
+            return Decimal(v).quantize(Decimal("0.01"))
+        return Decimal(0.00)
 
     class Config:
         from_attributes = True

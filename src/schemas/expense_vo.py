@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Annotated, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -61,7 +62,7 @@ class ExpenseVo(BaseModel):
     """
     Expense Model: represents a recurrent expense in the database
     """
-    id: int
+    id: str
     name: str
     due_day: int
     amount: Optional[Decimal] = None
@@ -69,6 +70,11 @@ class ExpenseVo(BaseModel):
     active_until: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def to_string_uuid(cls, v: UUID) -> str:
+        return str(v).upper()
 
     class Config:
         from_attributes = True

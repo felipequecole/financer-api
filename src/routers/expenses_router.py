@@ -1,73 +1,81 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Queue
 from queue import Empty
-from typing import List
 
 from fastapi import APIRouter, Depends, WebSocket
+from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy.orm import Session
-from src.database.db import get_db
-from src.database.subscription import subscribe
-from src.schemas.expense_vo import ExpenseRequestVo, ExpenseUpdateVo, ExpenseVo
-from src.services import expenses as expenses_service
-from src.services.expenses import get_expense_by_id
-from src.settings.logging import logger
 from starlette.websockets import WebSocketDisconnect
+
+from src.database.db import get_db
+from src.database.subscription import SubscriptionService
+from src.jsonapi.json_api import JSONAPIPage, JSONAPIParams, JSONAPIResponse
+from src.schemas.expense_vo import ExpenseRequestVo, ExpenseUpdateVo, ExpenseVo
+from src.services.expenses_service import ExpenseService
+from src.settings.logging import logger
 
 router = APIRouter(prefix="/expenses")
 active_connections_set = set()
 
 
-@router.get(path="/", response_model=List[ExpenseVo], response_model_exclude_none=True)
-def list_all(db: Session = Depends(get_db)):
-    return expenses_service.get_all_expenses(db)
+@router.get(path="/", response_model=JSONAPIPage[ExpenseVo], response_model_exclude_none=True)
+def list_all(db: Session = Depends(get_db), params: JSONAPIParams = Depends()):
+    return ExpenseService.get_all(db, paginate, params)
 
 
-@router.post("/", response_model=ExpenseVo, response_model_exclude_none=True)
+@router.post("/", response_model=JSONAPIResponse[ExpenseVo], response_model_exclude_none=True)
 def add_expense(expense: ExpenseRequestVo, db: Session = Depends(get_db)):
-    return expenses_service.create_expense(db, expense)
+    expense = ExpenseService.create(db, expense)
+    return JSONAPIResponse(data=expense)
 
 
-@router.patch("/{expense_id}", response_model=ExpenseVo, response_model_exclude_none=True)
-def update_expense(expense_id: int, expense: ExpenseUpdateVo, db: Session = Depends(get_db)):
+@router.patch("/{expense_id}", response_model=JSONAPIResponse[ExpenseVo], response_model_exclude_none=True)
+def update_expense(expense_id: str, expense: ExpenseUpdateVo, db: Session = Depends(get_db)):
     logger.info(f"Updating expense {expense_id}")
-    return expenses_service.update_expense(db, expense_id, expense)
+    updated_expense = ExpenseService.update(db, expense_id, expense)
+    return JSONAPIResponse(data=updated_expense)
 
 
 @router.delete("/{expense_id}")
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+def delete_expense(expense_id: str, db: Session = Depends(get_db)):
     logger.info(f"Deleting expense {expense_id}")
-    return expenses_service.delete_expense(db, expense_id)
+    return ExpenseService.delete(db, expense_id)
 
 
-@router.websocket("/liveupdates")
+@router.get("/{expense_id}", response_model=JSONAPIResponse[ExpenseVo], response_model_exclude_none=True)
+def get_by_id(expense_id: str, db: Session = Depends(get_db)):
+    logger.info(f"Getting expense {expense_id}")
+    expense = ExpenseService.get_by_id(db, expense_id)
+    return JSONAPIResponse(data=expense)
+
+
+@router.websocket("/ws")
 async def expenses_subscription(websocket: WebSocket, db: Session = Depends(get_db)):
     await websocket.accept()
     active_connections_set.add(websocket)
     logger.info('Websocket connection established')
     queue = Queue()
-    executor = ThreadPoolExecutor(max_workers=1)
     active = True
-    subscribe('expenses', queue, executor, lambda: active)
+    subscription = SubscriptionService.subscribe('expenses', queue, lambda: active)
     logger.info('Subscribed to expenses')
 
     while True:
         try:
-            data = queue.get(timeout=0.06)
+            data = queue.get_nowait()
             if ('del' in data):
                 await websocket.send_json(
                     {
                         'action': 'delete',
                         'data':
                             {
-                                'id': int(data.split(' ')[1])
+                                'id': data.split(' ')[1].upper().strip()
                             }
                     }
                 )
                 logger.info(f"Deleted expense {data.split(' ')[1]}")
             else:
-                expense_id = int(data.split(' ')[1])
-                response = get_expense_by_id(db, int(expense_id))
+                expense_id = data.split(' ')[1].upper().strip()
+                response = ExpenseService.get_by_id(db, expense_id)
                 await websocket.send_json(
                     {
                         'action': 'update',
@@ -84,8 +92,8 @@ async def expenses_subscription(websocket: WebSocket, db: Session = Depends(get_
 
     logger.info('Websocket connection closed')
     active = False
+    subscription.unsubscribe()
     active_connections_set.remove(websocket)
-    executor.shutdown(wait=True, cancel_futures=True)
 
 
 @router.on_event("shutdown")
@@ -103,6 +111,7 @@ async def _is_connection_alive(websocket: WebSocket):
         return True
     except WebSocketDisconnect:
         # Connection closed by client
+        logger.info('Connection has been closed')
         return False
     else:
         # Received some data from the client, ignore it

@@ -14,7 +14,11 @@ psycopg2-binary = "^2.9.9"
 websockets = "^12.0"
 pydantic-settings = "^2.1.0"
 nest-asyncio = "^1.6.0"
+fastapi-pagination = "^0.12.14"
 
+
+[tool.poetry.group.dev.dependencies]
+pyway = "^0.3.21"
 
 [build-system]
 requires = ["poetry-core"]

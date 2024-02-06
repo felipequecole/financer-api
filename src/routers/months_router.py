@@ -22,6 +22,12 @@ def get_all_months(db: Session = Depends(get_db), params: JSONAPIParams = Depend
     return MonthService.get_all(db, paginate, params)
 
 
+@router.get("/{month_id}", response_model=JSONAPIResponse[MonthDetailsVo], response_model_exclude_none=True)
+def get_all_months(month_id: str, db: Session = Depends(get_db), params: JSONAPIParams = Depends()):
+    month_details = MonthService.get_details(month_id, db)
+    return JSONAPIResponse(data=month_details)
+
+
 @router.delete("/{month_id}")
 def delete_month(month_id: str, response: Response, db: Session = Depends(get_db)):
     logger.info(f"Deleting month {month_id}")

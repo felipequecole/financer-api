@@ -7,12 +7,8 @@ WORKDIR /app
 # Add the current directory contents into the container at /app
 ADD . /app
 
-# Install Poetry
-RUN pip install poetry
-
-# Use Poetry to install dependencies
-RUN poetry config virtualenvs.create false \
-  && poetry install --no-interaction --no-ansi
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Make port 80 available to the world outside this container
 EXPOSE 8000

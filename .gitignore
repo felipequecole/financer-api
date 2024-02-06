@@ -28,6 +28,7 @@ archive.zip
 
 .env
 .pyway.conf
+.server.pyway.conf
 
 # macOS
 .DS_Store

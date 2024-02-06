@@ -1,8 +1,8 @@
 import uvicorn
 from fastapi import FastAPI, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_pagination import add_pagination
+from starlette.middleware.cors import CORSMiddleware
 from uvicorn.config import LOGGING_CONFIG
 
 from src.errors.UserError import UserError

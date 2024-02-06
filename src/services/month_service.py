@@ -59,7 +59,7 @@ class MonthService:
         return month
 
     @staticmethod
-    def get_details(month_id: str, db: Session):
+    def get_details(month_id: str, db: Session) -> MonthDetailsVo:
         month = db.query(MonthDetails).filter(MonthDetails.id == month_id).first()
         if not month:
             raise UserError("Month not found")
